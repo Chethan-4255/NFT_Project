@@ -3,7 +3,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/VynlenceTech/NFT_Project.git
+git clone https://github.com/techteam0219/NFT_Project.git
 cd NFT_Project
 ```
 
