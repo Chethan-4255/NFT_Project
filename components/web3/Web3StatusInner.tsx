@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import ReactGA from 'react-ga4';
-import { useAccount, useBalance } from 'wagmi';
+import { useAccount, useBalance, useNetwork } from 'wagmi';
 import classNames from 'classnames';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Jazzicon, { jsNumberForAddress } from 'react-jazzicon';
@@ -14,6 +14,7 @@ import { useLogoutCallback } from '@/hooks/user';
 
 function Web3StatusInner() {
   const { address, connector } = useAccount();
+  const { chain } = useNetwork();
   const { data: balance } = useBABTBalanceOf({ address });
   const {
     data: nativeBalance,
@@ -21,6 +22,7 @@ function Web3StatusInner() {
     isError: isBalanceError,
   } = useBalance({
     address,
+    chainId: chain?.id,
     watch: true,
   });
   const gamerEmailInfo = useRecoilValue(gamerEmailInfoAtom);
@@ -29,12 +31,19 @@ function Web3StatusInner() {
   const logout = useLogoutCallback();
 
   const formattedNativeBalance = useMemo(() => {
-    if (!nativeBalance || isBalanceError) return null;
-    const raw = formatUnits(nativeBalance.value, nativeBalance.decimals);
-    const [int, dec = ''] = raw.split('.');
-    const fixedDec = (dec + '0000').slice(0, 4);
-    return `${int}.${fixedDec}`;
-  }, [nativeBalance, isBalanceError]);
+    if (!nativeBalance) return null;
+
+    try {
+      // Prefer wagmi's pre-formatted value if available, fall back to manual formatting.
+      const raw = nativeBalance.formatted ?? formatUnits(nativeBalance.value, nativeBalance.decimals);
+      const [int, dec = ''] = raw.split('.');
+      const fixedDec = (dec + '0000').slice(0, 4);
+      return `${int}.${fixedDec}`;
+    } catch (e) {
+      // If anything goes wrong while formatting, just don't block rendering.
+      return null;
+    }
+  }, [nativeBalance]);
 
   useEffect(() => {
     if (!address) return;
