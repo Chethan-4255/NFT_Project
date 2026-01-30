@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import ReactGA from 'react-ga4';
-import { useAccount } from 'wagmi';
+import { useAccount, useBalance } from 'wagmi';
 import classNames from 'classnames';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import Jazzicon, { jsNumberForAddress } from 'react-jazzicon';
+import { formatUnits } from 'viem';
 import { shortenAddress } from '@/utils';
 import { isBABTHolderAtom } from '@/store/web3/state';
 import { useBABTBalanceOf } from '@/hooks/useContract';
@@ -14,10 +15,26 @@ import { useLogoutCallback } from '@/hooks/user';
 function Web3StatusInner() {
   const { address, connector } = useAccount();
   const { data: balance } = useBABTBalanceOf({ address });
+  const {
+    data: nativeBalance,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+  } = useBalance({
+    address,
+    watch: true,
+  });
   const gamerEmailInfo = useRecoilValue(gamerEmailInfoAtom);
   const setIsBABTHolder = useSetRecoilState(isBABTHolderAtom);
   const isBABTHolder = useMemo(() => !!(balance && balance.toString() !== '0'), [balance]);
   const logout = useLogoutCallback();
+
+  const formattedNativeBalance = useMemo(() => {
+    if (!nativeBalance || isBalanceError) return null;
+    const raw = formatUnits(nativeBalance.value, nativeBalance.decimals);
+    const [int, dec = ''] = raw.split('.');
+    const fixedDec = (dec + '0000').slice(0, 4);
+    return `${int}.${fixedDec}`;
+  }, [nativeBalance, isBalanceError]);
 
   useEffect(() => {
     if (!address) return;
@@ -62,7 +79,13 @@ function Web3StatusInner() {
             isBABTHolder && 'overflow-hidden rounded-full bg-gradient-babt',
           )}
         >
-          <p className={classNames(isBABTHolder && 'font-medium text-black')}>{shortenAddress(address)}</p>
+          <p className={classNames(isBABTHolder && 'font-medium text-black')}>
+            {address && isBalanceLoading && '... · '}
+            {address && !isBalanceLoading && formattedNativeBalance && nativeBalance
+              ? `${formattedNativeBalance} ${nativeBalance.symbol} · `
+              : null}
+            {shortenAddress(address)}
+          </p>
           <div className="ml-3 h-6.5 w-6.5 overflow-hidden rounded-full border border-white bg-p12-gradient sm:hidden">
             {isBABTHolder ? (
               <img
